@@ -1,0 +1,73 @@
+$PROBLEM 3001_TICAGRELOR 
+$INPUT ID TIME AMT ADDL II DV MDV CMT
+$DATA final_data_set_base.CSV
+
+$SUBROUTINES ADVAN6 TOL=3
+$MODEL
+  COMP=(DEPOT) ; GUT compartment
+  COMP=(PAR)    ; central compartment for parent
+  COMP=(MET)    ; central compartment for metabolite
+        
+
+$PK
+  TVKA=THETA(1)
+  TVCL=THETA(2)
+  TVV=THETA(3)
+  TVCLM= THETA(4)
+  TVVM = THETA(5)
+  TVFM = THETA(6)
+
+  KA = TVKA ; Absorption rate constant
+  CL=TVCL * EXP(ETA(1)) ; Total Clearance
+  V=TVV * EXP(ETA(2)) ; Central volume of Parent
+  CLM = TVCLM * EXP(ETA(3)) ; CL of metabolite
+  VM = TVVM * EXP(ETA(4)) ; Central volume of Metabolite
+  FM = TVFM  ; Fraction metabolized
+
+  K20 = CL*(1-FM)/V ; CL*FM=CL of metabolite formation (CLFM)
+  K23 = CL*FM/V ; CL*(1-FM)=CL of other route (CLO)
+  K30 = CLM/VM
+
+  S2=V ; AMT (mg) DV(scaling nM to mg/L)
+  S3=VM ; AMT (mg) DV(scaling nM to mg/L)
+
+
+$DES
+DADT(1) = -KA*A(1)
+DADT(2) = KA*A(1) - K20*A(2) - K23*A(2) 
+DADT(3) = K23*A(2) - K30*A(3)
+
+
+$ERROR
+W = F
+IPRED = F
+Y=IPRED+W*EPS(1)
+IRES = DV - IPRED
+IWRES = IRES/W
+
+
+$THETA
+(0.4, 0.533,1) ;1.KA
+(1, 12.2,100) ;2.CL
+(10, 157,1000) ;3.V
+(1, 8.8,30) ;4.CLM
+(10, 29.5,1500) ;5.VM
+(0.01, 0.224,1) ;6.FMET
+
+
+$OMEGA 
+ 0.0001  ; IIV-CL
+ 0.0001  ; IIV-V
+ 0.0001  ; IIV-CLM
+ 0.0001 ; IIV-VM
+
+$SIGMA
+ 1 FIX 
+
+$ESTIMATION SIG=3 MAXEVAL=9999 METHOD=1 INTER NOABORT
+$COV
+$TABLE ID TIME AMT ADDL II DV MDV CMT IPRED IRES IWRES CWRES NOPRINT ONEHEADER FILE=sdtab001
+$TABLE ID CL V CLM VM KA FM CMT ETA(1) ETA(2) ETA(3) ETA(4) NOPRINT ONEHEADER FILE=patab001
+$TABLE ID NOPRINT ONEHEADER FILE=cotab001
+$TABLE ID NOPRINT ONEHEADER FILE=catab001
+
